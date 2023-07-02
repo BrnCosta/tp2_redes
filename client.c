@@ -10,6 +10,7 @@
 #include <pthread.h>
 
 int s;
+int myId = 1;
 
 void help(int argc, char **argv)
 {
@@ -33,23 +34,14 @@ void *receiveThread(void *arg)
     return NULL;
 }
 
-void sendPrivate(char *idMsg, char *idSender, char *idReceiver, char *message)
+void send_msg(char *message)
 {
-    char buf[BUFSIZE];
-    memset(buf, 0, BUFSIZE);
-
-    char *concatMsg = montaMensagem(idMsg, idSender, idReceiver, message);
-
-    size_t count = send(s, concatMsg, BUFSIZE, 0);
+    size_t count = send(s, message, BUFSIZE, 0);
     if (count != BUFSIZE)
     {
         error_exit("send");
     }
 }
-
-// void sendAll()
-// {
-// }
 
 int main(int argc, char **argv)
 {
@@ -78,17 +70,18 @@ int main(int argc, char **argv)
         error_exit("connect");
     }
 
-    char addstr[BUFSIZE];
-    addrToString(addr, addstr, BUFSIZE);
+    char buf[BUFSIZE];
+    memset(buf, 0, BUFSIZE);
+
+    // ENVIA A MENSAGEM DE INCLUSAO PARA O SERVIDOR
+    strcpy(buf, "01"); // MENSAGEM DE INCLUSAO
+    send_msg(buf);
 
     pthread_t recv_thread;
     if (pthread_create(&recv_thread, NULL, receiveThread, NULL) != 0)
     {
         error_exit("recv_thread");
     }
-
-    char buf[BUFSIZE];
-    memset(buf, 0, BUFSIZE);
 
     while (1)
     {
@@ -97,32 +90,41 @@ int main(int argc, char **argv)
 
         if (strncmp(buf, "close connection", 16) == 0)
         {
-
-            break;
+            char msg[BUFSIZE];
+            sprintf(msg, "02 %02d", myId);
+            send_msg(msg);
         }
         else if (strncmp(buf, "list users", 10) == 0)
         {
-            // listUsers(cdata);
+            char msg[BUFSIZE];
+            sprintf(msg, "04");
+            send_msg(msg);
         }
         else if (strncmp(buf, "send all", 8) == 0)
         {
-            // sendAll(buf, cdata);
+            char mensagem[BUFSIZE - 10];
+            char sendmsg[BUFSIZE];
+            sscanf(buf, "send all \"%[^\"]\"", mensagem);
+            sprintf(sendmsg, "06 01 00 %s", mensagem);
+            send_msg(sendmsg);
         }
         else if (strncmp(buf, "send to", 7) == 0)
         {
             char idReceiver[3];
-            char mensagem[BUFSIZE];
+            char mensagem[BUFSIZE - 10];
+            char sendmsg[BUFSIZE];
             sscanf(buf, "send to %2s \"%[^\"]\"", idReceiver, mensagem);
-            sendPrivate("06", "00", idReceiver, mensagem);
+            sprintf(sendmsg, "06 01 %s %s", idReceiver, mensagem);
+            send_msg(sendmsg);
         }
 
         // ENVIA A MENSAGEM PARA O SERVIDOR
         // SE RETORNO FOR DIFERENTE DO ENVIO = ERROR
-        size_t count = send(s, buf, strlen(buf), 0);
-        if (count != strlen(buf))
-        {
-            error_exit("send");
-        }
+        // size_t count = send(s, buf, strlen(buf), 0);
+        // if (count != strlen(buf))
+        // {
+        //     error_exit("send");
+        // }
     }
 
     close(s);
