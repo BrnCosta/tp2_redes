@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 
 int count_user = 0;
+int users[MAX_USERS];
 
 void help(int argc, char **argv)
 {
@@ -49,18 +50,28 @@ void send_private(char *msg, int client_sock)
     }
 }
 
-void REQ_ADD(int client_sock)
+int REQ_ADD(int client_sock)
 {
     char sendMsg[BUFSIZE];
     if (count_user < MAX_USERS)
     {
-        users[count_user++] = client_sock;
-        printf("User %02d added\n", count_user);
+        int user_id = 0;
+        for (int i = 0; i < MAX_USERS; i++)
+        {
+            if (users[i] == 0)
+            {
+                users[i] = client_sock;
+                count_user++;
+                user_id = i+1;
+                break;
+            }
+        }
+        printf("User %02d added\n", user_id);
 
         char msg[BUFSIZE - 10];
-        sprintf(msg, "User %02d joined the group!", count_user);
+        sprintf(msg, "User %02d joined the group!", user_id);
 
-        sprintf(sendMsg, "06 %02d %02d %s", count_user, count_user, msg);
+        sprintf(sendMsg, "06 %02d %02d %s", user_id, user_id, msg);
 
         send_broadcast(sendMsg);
     }
@@ -68,13 +79,17 @@ void REQ_ADD(int client_sock)
     {
         sprintf(sendMsg, "07 00 00 01");
         send_private(sendMsg, client_sock);
+        return 0;
     }
+
+    return 1;
 }
 
 void REQ_REM(int client_sock, int idSender)
 {
-    users[idSender] = 0;
+    users[idSender - 1] = 0;
     printf("User %02d removed\n", idSender);
+    count_user--;
 
     char sendMsg[BUFSIZE];
     sprintf(sendMsg, "08 %02d 00 01", idSender);
@@ -121,12 +136,15 @@ void *client_thread(void *data)
         int id = atoi(idMsg);
         if (id == 1)
         {
-            REQ_ADD(client_sock);
+            int added = REQ_ADD(client_sock);
+            if(added == 0) {
+                break;
+            }
         }
         else if (id == 2)
         {
             REQ_REM(client_sock, atoi(idSender));
-            pthread_exit(EXIT_SUCCESS);
+            break;
         }
         else if (id == 4)
         {
@@ -160,7 +178,6 @@ void *client_thread(void *data)
     }
 
     close(cdata->client_sock);
-
     pthread_exit(EXIT_SUCCESS);
 }
 

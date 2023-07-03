@@ -6,8 +6,6 @@
 #define BUFSIZE 500
 #define MAX_USERS 15
 
-int users[MAX_USERS];
-
 struct MSG
 {
     char idMsg[10];

@@ -12,6 +12,7 @@
 
 int s;
 int myId = 0;
+int users[MAX_USERS];
 
 void help(int argc, char **argv)
 {
@@ -41,13 +42,10 @@ int tratamentoMensagem(char *buf)
             {
                 myId = sender;
             }
-            else // OUTRO CLIENT FOI ADICIONADO
-            {
-                users[sender - 1] = sender;
-            }
+            users[sender - 1] = sender;
         }
-        else
-        { // MENSAGEM
+        else // MENSAGEM
+        { 
             time_t tempo;
             struct tm *horario;
 
@@ -68,26 +66,39 @@ int tratamentoMensagem(char *buf)
         }
         puts(msg);
     }
-    else if (id == 7)
+    else if(id == 4) // LIST USERS
+    {
+        // CASO SO O MEU CLIENT ESTA CONECTADO, PRINTA MEU ID
+        if(msg == NULL)
+        { 
+            printf("%02d\n", myId);
+        } 
+        else // CASO EXISTAM OUTROS CLIENTS, PRINTA A LISTA RETORNADA 
+        { 
+            puts(msg);
+        }
+    }
+    else if (id == 7) // ERROR
     {
         int error = atoi(msg);
         if (error == 1)
         {
             puts("User limit exceeded");
+            return 1;
         }
         else if (error == 3)
         {
             puts("Receiver not found");
         }
     }
-    else if (id == 8)
+    else if (id == 8) // OK
     {
-        if (myId == sender)
+        if (myId == sender) // MEU CLIENT FOI DESCONECTADO
         {
             puts("Removed Successfully");
             return 1;
         }
-        else
+        else // OUTRO CLIENT SE DESCONECTOU
         {
             printf("User %02d left the group!\n", sender);
         }
@@ -103,14 +114,13 @@ void *receiveThread(void *arg)
 
     while (recv(s, buf, BUFSIZE, 0) > 0)
     {
-        int exit = tratamentoMensagem(buf);
+        int exitThread = tratamentoMensagem(buf);
         memset(buf, 0, BUFSIZE);
 
-        if (exit == 1)
+        if (exitThread == 1)
         {
             close(s);
-            pthread_exit(EXIT_SUCCESS);
-            break;
+            exit(EXIT_SUCCESS);
         }
     }
 
@@ -200,8 +210,11 @@ int main(int argc, char **argv)
             char mensagem[BUFSIZE - 10];
             char sendmsg[BUFSIZE];
             sscanf(buf, "send to %2s \"%[^\"]\"", idReceiver, mensagem);
-            sprintf(sendmsg, "06 %02d %s %s", myId, idReceiver, mensagem);
-            send_msg(sendmsg);
+            if(atoi(idReceiver) != myId) // IMPEDE QUE ENVIA A MSG PARA ELE MESMO
+            {
+                sprintf(sendmsg, "06 %02d %s %s", myId, idReceiver, mensagem);
+                send_msg(sendmsg);
+            }
         }
     }
 
