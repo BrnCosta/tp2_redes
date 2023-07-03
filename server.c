@@ -161,7 +161,7 @@ void *client_thread(void *data)
                 int receiver_sock = users[atoi(idReceiver) - 1];
                 if (receiver_sock == 0) // USER NOT FOUND
                 {
-                    printf("User not found\n");
+                    printf("User %s not found\n", idReceiver);
                     strcpy(buf, "07 00 00 03");
                 }
                 else
