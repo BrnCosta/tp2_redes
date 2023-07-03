@@ -38,6 +38,37 @@ char *montaMensagem(char *idMsg, char *idSender, char *idReceiver, char *message
     return concatMsg;
 }
 
+void desmontaMensagem(const char *string, char **idMsg, char **idSender, char **idReceiver, char **msg)
+{
+    char *copiaString = strdup(string);
+    char *token = strtok(copiaString, " ");
+
+    if (token != NULL)
+    {
+        *idMsg = strdup(token);
+        token = strtok(NULL, " ");
+
+        if (token != NULL)
+        {
+            *idSender = strdup(token);
+            token = strtok(NULL, " ");
+
+            if (token != NULL)
+            {
+                *idReceiver = strdup(token);
+                token = strtok(NULL, "");
+
+                if (token != NULL)
+                {
+                    *msg = strdup(token);
+                }
+            }
+        }
+    }
+
+    free(copiaString);
+}
+
 int addparse(const char *addrstr, const char *portstr, struct sockaddr_storage *storage)
 {
     if (addrstr == NULL || portstr == NULL)

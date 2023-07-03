@@ -9,9 +9,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#define MAX_USERS 15
-
-int users[MAX_USERS];
 int count_user = 0;
 
 void help(int argc, char **argv)
@@ -26,37 +23,6 @@ struct client_data
     int client_sock;
     struct sockaddr_storage storage;
 };
-
-void desmontaMensagem(const char *string, char **idMsg, char **idSender, char **idReceiver, char **msg)
-{
-    char *copiaString = strdup(string);
-    char *token = strtok(copiaString, " ");
-
-    if (token != NULL)
-    {
-        *idMsg = strdup(token);
-        token = strtok(NULL, " ");
-
-        if (token != NULL)
-        {
-            *idSender = strdup(token);
-            token = strtok(NULL, " ");
-
-            if (token != NULL)
-            {
-                *idReceiver = strdup(token);
-                token = strtok(NULL, "");
-
-                if (token != NULL)
-                {
-                    *msg = strdup(token);
-                }
-            }
-        }
-    }
-
-    free(copiaString);
-}
 
 void send_broadcast(char *msg)
 {
@@ -94,7 +60,7 @@ void REQ_ADD(int client_sock)
         char msg[BUFSIZE - 10];
         sprintf(msg, "User %02d joined the group!", count_user);
 
-        sprintf(sendMsg, "06 %02d %02d %s", count_user, 0, msg);
+        sprintf(sendMsg, "06 %02d %02d %s", count_user, count_user, msg);
 
         send_broadcast(sendMsg);
     }
@@ -111,8 +77,8 @@ void REQ_REM(int client_sock, int idSender)
     printf("User %02d removed\n", idSender);
 
     char sendMsg[BUFSIZE];
-    sprintf(sendMsg, "08 00 %02d 01", idSender);
-    send_private(sendMsg, client_sock);
+    sprintf(sendMsg, "08 %02d 00 01", idSender);
+    send_broadcast(sendMsg);
 }
 
 void RES_LIST(int client_sock)
@@ -160,7 +126,7 @@ void *client_thread(void *data)
         else if (id == 2)
         {
             REQ_REM(client_sock, atoi(idSender));
-            break;
+            pthread_exit(EXIT_SUCCESS);
         }
         else if (id == 4)
         {
@@ -175,7 +141,18 @@ void *client_thread(void *data)
             else
             {
                 int receiver_sock = users[atoi(idReceiver) - 1];
-                send_private(buf, receiver_sock);
+                if (receiver_sock == 0) // USER NOT FOUND
+                {
+                    printf("User not found\n");
+                    strcpy(buf, "07 00 00 03");
+                }
+                else
+                {
+                    send_private(buf, receiver_sock);
+                    // INVERTE E ENVIA PARA O SENDER
+                    sprintf(buf, "06 %s %s %s", idReceiver, idSender, msg);
+                }
+                send_private(buf, client_sock);
             }
         }
 
@@ -250,15 +227,6 @@ int main(int argc, char **argv)
 
         cdata->client_sock = client_sock;
         memcpy(&(cdata->storage), &client_storage, sizeof(client_storage));
-
-        // ADICIONO NO ARRAY DE USUARIOS, O ADDRESS DO NOVO USUARIO
-        // users[count_user] = client_sock;
-        // printf("User %02d added\n", ++count_user);
-
-        // char msg_con[40];
-        // snprintf(msg_con, 40, "User %02d joined the group!", count_user);
-
-        // send_broadcast(msg_con, users, 40);
 
         pthread_t tid;
         pthread_create(&tid, NULL, client_thread, cdata);
